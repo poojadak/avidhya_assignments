@@ -1,0 +1,2 @@
+{"timestamp": "2026-04-23T09:30:53.141803+00:00", "hook": "validate-bash", "action": "BLOCKED", "command": "rm -rf /src", "reason": "rm -rf is permanently destructive"}
+{"timestamp": "2026-04-23T09:31:22.975924+00:00", "hook": "check-secrets", "action": "BLOCKED", "file": "src/config.py", "findings": [{"name": "Hardcoded Password", "line": 1}]}

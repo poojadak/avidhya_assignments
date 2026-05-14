@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+urls.db
+.pytest_cache/
+*.egg-info/
+venv/
+env/
+.env
+instance/
+# Artifact directory created by accidental brace expansion
+{prompts,specs

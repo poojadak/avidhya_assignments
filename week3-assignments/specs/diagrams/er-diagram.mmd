@@ -1,0 +1,30 @@
+erDiagram
+    URL_RECORD {
+        int         id              PK  "Auto-increment primary key"
+        string      short_code      UK  "6-20 char unique code (indexed)"
+        string      original_url        "Full destination URL"
+        int         click_count         "Total redirect hits (default 0)"
+        datetime    created_at          "UTC creation timestamp"
+        datetime    last_accessed       "UTC last redirect timestamp (nullable)"
+        datetime    expires_at          "Expiry datetime UTC (nullable)"
+        string      referrer            "Last HTTP Referer header (nullable)"
+        boolean     is_active           "Soft-delete flag (default true)"
+    }
+
+    BLOCKED_DOMAIN {
+        int     id          PK  "Auto-increment primary key"
+        string  domain      UK  "e.g. malware.example.com"
+        string  reason          "Why domain is blocked"
+        datetime added_at       "UTC timestamp when blocked"
+    }
+
+    URL_RECORD ||--o{ CLICK_EVENT : "has many"
+
+    CLICK_EVENT {
+        int     id          PK  "Auto-increment primary key"
+        int     url_id      FK  "FK → URL_RECORD.id"
+        datetime clicked_at    "UTC click timestamp"
+        string  referrer       "HTTP Referer at time of click (nullable)"
+        string  user_agent     "User-Agent header (nullable)"
+        string  ip_address     "Hashed client IP for privacy"
+    }

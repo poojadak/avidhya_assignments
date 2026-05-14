@@ -1,0 +1,405 @@
+# Generated using prompts/spec-writer.yaml
+# Feature request: URL Shortener Service
+# Tech stack: Python + Flask + SQLAlchemy + pytest
+
+metadata:
+  title: URL Shortener Service Specification
+  version: "1.0.0"
+  author: spec-writer.yaml v1.0.0
+  created_at: "2024-01-15"
+  status: APPROVED
+  tech_stack: "Python + Flask + SQLAlchemy + pytest"
+
+# ─────────────────────────────────────────────────────
+# FUNCTIONAL REQUIREMENTS
+# ─────────────────────────────────────────────────────
+requirements:
+
+  # --- Core Shortening ---
+  - id: REQ-SHORT-001
+    category: core
+    statement: >
+      The system SHALL accept a valid HTTP or HTTPS URL via POST /api/shorten
+      and return a unique alphanumeric short code of exactly 6 characters.
+    priority: SHALL
+
+  - id: REQ-SHORT-002
+    category: core
+    statement: >
+      The system MUST guarantee uniqueness of every generated short code.
+      On collision the system MUST retry up to 5 times before returning HTTP 500.
+    priority: MUST
+
+  - id: REQ-SHORT-003
+    category: core
+    statement: >
+      The system SHALL allow the caller to supply a custom alias as the short
+      code (3–20 alphanumeric characters or hyphens), subject to uniqueness
+      validation.
+    priority: SHALL
+
+  # --- Redirect ---
+  - id: REQ-REDIR-001
+    category: redirect
+    statement: >
+      The system SHALL redirect GET /{code} to the original URL using
+      HTTP 302 Found and SHALL complete the redirect within 200 ms at p95
+      under normal load (up to 100 req/s).
+    priority: SHALL
+
+  - id: REQ-REDIR-002
+    category: redirect
+    statement: >
+      The system MUST return HTTP 404 Not Found with a JSON error body when
+      the short code does not exist.
+    priority: MUST
+
+  - id: REQ-REDIR-003
+    category: redirect
+    statement: >
+      The system MUST return HTTP 410 Gone when the short code exists but its
+      expiration date has passed, and MUST NOT perform a redirect in that case.
+    priority: MUST
+
+  # --- Analytics ---
+  - id: REQ-ANAL-001
+    category: analytics
+    statement: >
+      The system SHALL atomically increment the click_count field on every
+      successful redirect.
+    priority: SHALL
+
+  - id: REQ-ANAL-002
+    category: analytics
+    statement: >
+      The system SHALL record last_accessed as a UTC ISO-8601 timestamp on
+      every successful redirect.
+    priority: SHALL
+
+  - id: REQ-ANAL-003
+    category: analytics
+    statement: >
+      The system SHOULD capture the HTTP Referer header value on each redirect
+      and persist it as the most-recent referrer field.
+    priority: SHOULD
+
+  - id: REQ-ANAL-004
+    category: analytics
+    statement: >
+      The system SHALL expose GET /api/urls/{code}/stats returning click_count,
+      last_accessed, referrer, created_at, and expires_at for the given code.
+    priority: SHALL
+
+  # --- Expiry ---
+  - id: REQ-EXP-001
+    category: expiry
+    statement: >
+      The system SHALL accept an optional expires_at field (UTC ISO-8601
+      datetime) when creating a short URL. If omitted the URL SHALL NOT expire.
+    priority: SHALL
+
+  - id: REQ-EXP-002
+    category: expiry
+    statement: >
+      The system MUST evaluate expiry at redirect time, not at creation time.
+      A URL whose expires_at is in the past MUST be treated as expired.
+    priority: MUST
+
+  # --- Validation ---
+  - id: REQ-VAL-001
+    category: validation
+    statement: >
+      The system MUST reject URLs that do not start with http:// or https://,
+      returning HTTP 422 Unprocessable Entity with a descriptive error message.
+    priority: MUST
+
+  - id: REQ-VAL-002
+    category: validation
+    statement: >
+      The system MUST reject duplicate original URLs that are already active in
+      the datastore, returning HTTP 409 Conflict with the existing short code.
+    priority: MUST
+
+  - id: REQ-VAL-003
+    category: validation
+    statement: >
+      The system MUST reject URLs matching a configurable blocklist of known
+      malicious domains, returning HTTP 422 with reason "blocked_domain".
+    priority: MUST
+
+  - id: REQ-VAL-004
+    category: validation
+    statement: >
+      The system MUST reject custom aliases that are already taken, returning
+      HTTP 409 Conflict.
+    priority: MUST
+
+  # --- API General ---
+  - id: REQ-API-001
+    category: api
+    statement: >
+      All API endpoints SHALL return JSON responses with a consistent envelope:
+      { "success": bool, "data": object|null, "error": string|null }.
+    priority: SHALL
+
+  - id: REQ-API-002
+    category: api
+    statement: >
+      The system SHALL return appropriate HTTP status codes: 200 OK for stats,
+      201 Created for new short URLs, 302 for redirects, 404/409/410/422 for
+      client errors, 500 for server errors.
+    priority: SHALL
+
+# ─────────────────────────────────────────────────────
+# GHERKIN SCENARIOS
+# ─────────────────────────────────────────────────────
+gherkin_scenarios:
+
+  - id: SCENARIO-001
+    scenario: "Successfully shorten a valid URL"
+    given: "the API is running and the database is empty"
+    when: "a POST request is made to /api/shorten with body { url: 'https://www.example.com/some/long/path' }"
+    then:
+      - "the response status is 201 Created"
+      - "the response body contains a 6-character alphanumeric short_code"
+      - "the response body contains the original url"
+      - "the URL record is persisted in the database"
+    requirement_ids: [REQ-SHORT-001, REQ-API-001, REQ-API-002]
+
+  - id: SCENARIO-002
+    scenario: "Redirect a valid short code to the original URL"
+    given: "a short URL with code 'abc123' exists pointing to 'https://www.example.com'"
+    when: "a GET request is made to /abc123"
+    then:
+      - "the response status is 302 Found"
+      - "the Location header is 'https://www.example.com'"
+      - "click_count is incremented by 1"
+      - "last_accessed is updated to the current UTC time"
+    requirement_ids: [REQ-REDIR-001, REQ-ANAL-001, REQ-ANAL-002]
+
+  - id: SCENARIO-003
+    scenario: "Return 404 for a non-existent short code"
+    given: "the database does not contain a record with code 'xxxxxx'"
+    when: "a GET request is made to /xxxxxx"
+    then:
+      - "the response status is 404 Not Found"
+      - "the response body contains { success: false, error: 'Short code not found' }"
+    requirement_ids: [REQ-REDIR-002, REQ-API-001]
+
+  - id: SCENARIO-004
+    scenario: "Return 410 Gone for an expired short URL"
+    given: "a short URL with code 'exp001' exists with expires_at set to 1 hour in the past"
+    when: "a GET request is made to /exp001"
+    then:
+      - "the response status is 410 Gone"
+      - "the response body contains { success: false, error: 'URL has expired' }"
+      - "no redirect is performed"
+    requirement_ids: [REQ-REDIR-003, REQ-EXP-002]
+
+  - id: SCENARIO-005
+    scenario: "Reject an invalid (non-HTTP) URL"
+    given: "the API is running"
+    when: "a POST request is made to /api/shorten with body { url: 'ftp://files.example.com' }"
+    then:
+      - "the response status is 422 Unprocessable Entity"
+      - "the response body contains { success: false, error: 'URL must start with http or https' }"
+      - "no record is created in the database"
+    requirement_ids: [REQ-VAL-001]
+
+  - id: SCENARIO-006
+    scenario: "Reject a duplicate active URL"
+    given: "a short URL already exists for 'https://www.example.com/page'"
+    when: "a second POST request is made to /api/shorten with the same URL"
+    then:
+      - "the response status is 409 Conflict"
+      - "the response body contains the existing short_code"
+      - "no new record is created"
+    requirement_ids: [REQ-VAL-002]
+
+  - id: SCENARIO-007
+    scenario: "Create a URL with a custom alias"
+    given: "no short URL with code 'myalias' exists"
+    when: "a POST request is made to /api/shorten with body { url: 'https://example.com', custom_alias: 'myalias' }"
+    then:
+      - "the response status is 201 Created"
+      - "the response short_code is 'myalias'"
+    requirement_ids: [REQ-SHORT-003]
+
+  - id: SCENARIO-008
+    scenario: "Reject a custom alias that is already taken"
+    given: "a short URL with code 'taken' already exists"
+    when: "a POST request is made to /api/shorten with custom_alias 'taken'"
+    then:
+      - "the response status is 409 Conflict"
+      - "the response body contains { success: false, error: 'Alias already taken' }"
+    requirement_ids: [REQ-VAL-004]
+
+  - id: SCENARIO-009
+    scenario: "Retrieve analytics stats for a short URL"
+    given: "a short URL 'abc123' has been clicked 5 times"
+    when: "a GET request is made to /api/urls/abc123/stats"
+    then:
+      - "the response status is 200 OK"
+      - "click_count equals 5"
+      - "last_accessed is a valid ISO-8601 datetime"
+      - "created_at is present"
+    requirement_ids: [REQ-ANAL-004]
+
+  - id: SCENARIO-010
+    scenario: "Create a short URL with an expiry date"
+    given: "the API is running"
+    when: "a POST request is made to /api/shorten with { url: 'https://example.com', expires_at: '<future datetime>' }"
+    then:
+      - "the response status is 201 Created"
+      - "the stored record has a non-null expires_at matching the request value"
+    requirement_ids: [REQ-EXP-001]
+
+# ─────────────────────────────────────────────────────
+# API CONTRACT  (OpenAPI 3.0 style)
+# ─────────────────────────────────────────────────────
+api_contract:
+  openapi: "3.0.3"
+  info:
+    title: URL Shortener API
+    version: "1.0.0"
+  paths:
+    /api/shorten:
+      post:
+        summary: Create a new short URL
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    example: "https://www.example.com/very/long/path"
+                  custom_alias:
+                    type: string
+                    pattern: "^[a-zA-Z0-9-]{3,20}$"
+                    example: "my-link"
+                  expires_at:
+                    type: string
+                    format: date-time
+                    example: "2025-12-31T23:59:59Z"
+        responses:
+          "201":
+            description: Short URL created
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/SuccessResponse"
+          "409":
+            description: Duplicate URL or alias conflict
+          "422":
+            description: Validation error
+
+    /{code}:
+      get:
+        summary: Redirect to original URL
+        parameters:
+          - name: code
+            in: path
+            required: true
+            schema: { type: string }
+        responses:
+          "302": { description: Redirect to original URL }
+          "404": { description: Short code not found }
+          "410": { description: URL has expired }
+
+    /api/urls/{code}/stats:
+      get:
+        summary: Get analytics for a short URL
+        parameters:
+          - name: code
+            in: path
+            required: true
+            schema: { type: string }
+        responses:
+          "200":
+            description: Analytics data
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/StatsResponse"
+          "404": { description: Short code not found }
+
+  components:
+    schemas:
+      SuccessResponse:
+        type: object
+        properties:
+          success: { type: boolean }
+          data:
+            type: object
+            properties:
+              short_code: { type: string }
+              short_url: { type: string }
+              original_url: { type: string }
+              expires_at: { type: string, format: date-time, nullable: true }
+          error: { type: string, nullable: true }
+      StatsResponse:
+        type: object
+        properties:
+          success: { type: boolean }
+          data:
+            type: object
+            properties:
+              short_code: { type: string }
+              original_url: { type: string }
+              click_count: { type: integer }
+              last_accessed: { type: string, format: date-time, nullable: true }
+              referrer: { type: string, nullable: true }
+              created_at: { type: string, format: date-time }
+              expires_at: { type: string, format: date-time, nullable: true }
+
+# ─────────────────────────────────────────────────────
+# NON-FUNCTIONAL REQUIREMENTS
+# ─────────────────────────────────────────────────────
+non_functional:
+  - id: NFR-PERF-001
+    category: performance
+    statement: >
+      Redirect latency MUST be below 200 ms at p95 under a sustained load
+      of 100 requests/second.
+    priority: MUST
+
+  - id: NFR-SEC-001
+    category: security
+    statement: >
+      The API MUST validate all inputs server-side. SQL queries SHALL use
+      parameterised statements exclusively (via SQLAlchemy ORM). Raw string
+      interpolation in queries is strictly prohibited.
+    priority: MUST
+
+  - id: NFR-SEC-002
+    category: security
+    statement: >
+      The service MUST NOT follow or validate destination URLs at redirect time
+      to prevent SSRF. URL validation SHALL be limited to scheme and format checks.
+    priority: MUST
+
+  - id: NFR-RATE-001
+    category: rate-limiting
+    statement: >
+      The POST /api/shorten endpoint SHALL enforce a rate limit of 60 requests
+      per minute per IP address. Exceeding the limit SHALL return HTTP 429.
+    priority: SHALL
+
+  - id: NFR-AVAIL-001
+    category: availability
+    statement: >
+      The service SHOULD achieve 99.9% uptime measured monthly. Database
+      connections SHOULD use connection pooling.
+    priority: SHOULD
+
+  - id: NFR-LOG-001
+    category: observability
+    statement: >
+      Every request MUST be logged with: timestamp, method, path, status code,
+      and latency. Errors MUST include a stack trace in server logs but MUST NOT
+      expose stack traces in API responses.
+    priority: MUST

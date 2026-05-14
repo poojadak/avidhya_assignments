@@ -1,0 +1,29 @@
+stateDiagram-v2
+    [*] --> Active : POST /api/shorten (valid URL, no expiry or future expiry)
+
+    Active --> Redirecting : GET /{code} received
+    Redirecting --> Active  : click recorded, 302 returned
+
+    Active --> Expired : expires_at datetime passes (checked at redirect time)
+    Expired --> [*]    : GET /{code} → 410 Gone (no state change, terminal)
+
+    Active --> Deleted : DELETE /api/urls/{code} OR admin soft-delete
+    Deleted --> [*]    : is_active = false, 404 returned for all requests
+
+    note right of Active
+        click_count increments on every redirect
+        last_accessed updated to UTC now
+        referrer updated from HTTP Referer header
+    end note
+
+    note right of Expired
+        Record remains in DB (is_active = true)
+        Only expires_at check prevents redirect
+        Stats endpoint still works
+    end note
+
+    note right of Deleted
+        is_active = false
+        Short code becomes available for reuse
+        Historical click data retained
+    end note

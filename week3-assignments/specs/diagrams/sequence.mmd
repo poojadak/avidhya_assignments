@@ -1,0 +1,68 @@
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant F as Flask App
+    participant V as Validator
+    participant DB as SQLite DB
+
+    %% ── CREATE SHORT URL ──────────────────────────────
+    C->>F: POST /api/shorten {url, custom_alias?, expires_at?}
+    F->>V: validate_url(url)
+    alt URL invalid (not http/https)
+        V-->>F: ValidationError
+        F-->>C: 422 Unprocessable Entity
+    else URL on blocklist
+        V-->>F: BlockedDomainError
+        F-->>C: 422 {error: blocked_domain}
+    else URL valid
+        V-->>F: OK
+        F->>DB: SELECT * WHERE original_url = url AND active = true
+        alt Duplicate exists
+            DB-->>F: existing record
+            F-->>C: 409 Conflict {existing short_code}
+        else custom_alias provided
+            F->>DB: SELECT * WHERE short_code = alias
+            alt Alias taken
+                DB-->>F: existing record
+                F-->>C: 409 Conflict {error: alias taken}
+            else Alias free
+                DB-->>F: null
+                F->>DB: INSERT url record (code = alias)
+                DB-->>F: saved record
+                F-->>C: 201 Created {short_code, short_url}
+            end
+        else No alias
+            F->>F: generate_code() [retry up to 5×]
+            F->>DB: INSERT url record
+            DB-->>F: saved record
+            F-->>C: 201 Created {short_code, short_url}
+        end
+    end
+
+    %% ── REDIRECT ──────────────────────────────────────
+    C->>F: GET /{code}
+    F->>DB: SELECT * WHERE short_code = code
+    alt Code not found
+        DB-->>F: null
+        F-->>C: 404 Not Found
+    else Code found, check expiry
+        DB-->>F: url record
+        alt expires_at in the past
+            F-->>C: 410 Gone
+        else Active
+            F->>DB: UPDATE click_count+1, last_accessed, referrer
+            DB-->>F: OK
+            F-->>C: 302 Redirect → original_url
+        end
+    end
+
+    %% ── STATS ─────────────────────────────────────────
+    C->>F: GET /api/urls/{code}/stats
+    F->>DB: SELECT * WHERE short_code = code
+    alt Not found
+        DB-->>F: null
+        F-->>C: 404 Not Found
+    else Found
+        DB-->>F: url record
+        F-->>C: 200 OK {click_count, last_accessed, referrer, …}
+    end

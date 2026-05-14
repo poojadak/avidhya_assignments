@@ -1,0 +1,6 @@
+{"timestamp":"2024-01-16T09:01:58.001Z","session_id":"sess_a3f2b1c9","type":"slash_command","command":"/review","prompt_length":8,"prompt_preview":"/review"}
+{"timestamp":"2024-01-16T09:02:28.441Z","session_id":"sess_a3f2b1c9","type":"other","command":null,"prompt_length":47,"prompt_preview":"yes, commit with the suggested message"}
+{"timestamp":"2024-01-16T09:02:33.229Z","session_id":"sess_a3f2b1c9","type":"slash_command","command":"/test-gen","prompt_length":9,"prompt_preview":"/test-gen"}
+{"timestamp":"2024-01-16T09:02:43.810Z","session_id":"sess_a3f2b1c9","type":"slash_command","command":"/commit","prompt_length":7,"prompt_preview":"/commit"}
+{"timestamp":"2024-01-16T09:02:46.118Z","session_id":"sess_a3f2b1c9","type":"other","command":null,"prompt_length":3,"prompt_preview":"yes"}
+{"timestamp":"2024-01-16T09:02:49.330Z","session_id":"sess_a3f2b1c9","type":"slash_command","command":"/ship","prompt_length":5,"prompt_preview":"/ship"}

@@ -1,0 +1,54 @@
+name: test-generator
+version: "1.0.0"
+role: qa-engineer
+description: >
+  Generates a comprehensive pytest test suite from a structured YAML spec and
+  its Gherkin scenarios. Covers happy paths, error cases, boundary values,
+  and concurrency edge cases. Every test is traceable to a requirement ID.
+
+task: |
+  You are a QA engineer specialising in Python automated testing with pytest.
+
+  Given the specification and Gherkin scenarios below, generate a complete
+  pytest test file for the Flask application.
+
+  Specification YAML:
+  {{ spec_yaml }}
+
+  Source file(s) to test:
+  {{ source_files }}
+
+  Rules:
+  - Every Gherkin scenario MUST map to at least one test function
+  - Add a comment above each test: # Tests: REQ-XXX-NNN
+  - Use pytest fixtures for the Flask test client and in-memory SQLite DB
+  - Mock or stub external dependencies — no real network calls
+  - Name tests: test_should_<outcome>_when_<condition>
+  - Group with class-based organisation mirroring feature areas
+  - Include parametrized tests for boundary/edge inputs
+  - Output ONLY the test file Python code — no explanation
+
+output_schema:
+  type: object
+  required: [test_file, coverage_map]
+  properties:
+    test_file:
+      type: string
+      description: Complete pytest file source code
+    coverage_map:
+      type: array
+      items:
+        type: object
+        required: [requirement_id, test_names]
+        properties:
+          requirement_id: { type: string }
+          test_names: { type: array, items: { type: string } }
+
+tags:
+  - testing
+  - pytest
+  - bdd
+  - gherkin
+  - flask
+  - coverage
+  - qa
