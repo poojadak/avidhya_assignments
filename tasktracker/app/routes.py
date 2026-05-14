@@ -1,10 +1,10 @@
-from flask import Flask, request, jsonify, abort
+from flask import Blueprint, request, jsonify, abort
 from datetime import datetime, timezone
 import uuid
 
-app = Flask(__name__)
+from . import tasks
 
-tasks = {}
+bp = Blueprint("tasks", __name__)
 
 
 def make_task(title, description="", status="todo"):
@@ -17,7 +17,7 @@ def make_task(title, description="", status="todo"):
     }
 
 
-@app.route("/tasks", methods=["GET"])
+@bp.route("/tasks", methods=["GET"])
 def list_tasks():
     status_filter = request.args.get("status")
     result = list(tasks.values())
@@ -26,7 +26,7 @@ def list_tasks():
     return jsonify(result)
 
 
-@app.route("/tasks", methods=["POST"])
+@bp.route("/tasks", methods=["POST"])
 def create_task():
     body = request.get_json(silent=True) or {}
     title = body.get("title", "").strip()
@@ -40,7 +40,7 @@ def create_task():
     return jsonify(task), 201
 
 
-@app.route("/tasks/<task_id>", methods=["GET"])
+@bp.route("/tasks/<task_id>", methods=["GET"])
 def get_task(task_id):
     task = tasks.get(task_id)
     if task is None:
@@ -48,7 +48,7 @@ def get_task(task_id):
     return jsonify(task)
 
 
-@app.route("/tasks/<task_id>", methods=["PUT"])
+@bp.route("/tasks/<task_id>", methods=["PUT"])
 def update_task(task_id):
     task = tasks.get(task_id)
     if task is None:
@@ -68,19 +68,9 @@ def update_task(task_id):
     return jsonify(task)
 
 
-@app.route("/tasks/<task_id>", methods=["DELETE"])
+@bp.route("/tasks/<task_id>", methods=["DELETE"])
 def delete_task(task_id):
     task = tasks.pop(task_id, None)
     if task is None:
         abort(404, description="task not found")
     return "", 204
-
-
-@app.errorhandler(400)
-@app.errorhandler(404)
-def http_error(e):
-    return jsonify({"error": e.description}), e.code
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
