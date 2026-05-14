@@ -1,7 +1,7 @@
 # Mini Project — Answers
 
-**Name:** [Your Name]
-**Date:** [Submission Date]
+**Name:** [Pooja Dak
+**Date:** [14 May 2026]
 
 ---
 
