@@ -1,0 +1,58 @@
+[
+  {
+    "id": "SEC-001",
+    "owasp_category": "A07:2021 – Identification and Authentication Failures",
+    "location": "module level, line 16",
+    "severity": "CRITICAL",
+    "description": "The Stripe live API key is hardcoded directly in the source file as STRIPE_API_KEY = 'sk_live_HARDCODED_KEY_12345'. Anyone with read access to the repository can obtain a production credential. This is a live key prefix (sk_live_), making the exposure especially serious.",
+    "recommendation": "Remove the hardcoded key immediately and load it from an environment variable using os.environ.get('STRIPE_API_KEY'), failing loudly on startup if it is not set."
+  },
+  {
+    "id": "SEC-002",
+    "owasp_category": "A03:2021 – Injection",
+    "location": "record_transaction(), visible in query construction",
+    "severity": "CRITICAL",
+    "description": "The SQL INSERT in record_transaction() is built with an f-string that embeds user_id and charge_id directly into the query string. A malicious user_id such as '); DROP TABLE transactions; -- would be executed by the database without any sanitisation.",
+    "recommendation": "Replace the f-string query with a parameterised query using placeholders (e.g., cursor.execute('INSERT INTO transactions VALUES (?, ?, ?)', (user_id, amount, charge_id))) so the database driver handles escaping."
+  },
+  {
+    "id": "SEC-003",
+    "owasp_category": "A03:2021 – Injection",
+    "location": "get_payment_history(), SELECT query",
+    "severity": "CRITICAL",
+    "description": "The SELECT query in get_payment_history() uses the same f-string pattern, embedding user_id directly. An attacker who controls user_id could extract data from unrelated rows or tables.",
+    "recommendation": "Use a parameterised query for this SELECT as well, and also restrict the columns returned to avoid over-fetching sensitive fields."
+  },
+  {
+    "id": "SEC-004",
+    "owasp_category": "A01:2021 – Broken Access Control",
+    "location": "refund_payment()",
+    "severity": "HIGH",
+    "description": "refund_payment() accepts a charge_id and issues a refund with no check on whether the caller is authorised to refund that charge. Any authenticated user (or an unauthenticated caller if the function is reachable) can refund any transaction, including those belonging to other users.",
+    "recommendation": "Add an authorisation check that verifies the requesting user owns the charge_id before passing it to the Stripe API."
+  },
+  {
+    "id": "SEC-005",
+    "owasp_category": "A04:2021 – Insecure Design",
+    "location": "process_payment(), function signature",
+    "severity": "HIGH",
+    "description": "process_payment() performs no validation on the amount parameter. A zero or negative value would be passed directly to Stripe, and there is no guard against unusually large amounts either. This could be exploited to trigger zero-value charges or, depending on Stripe behaviour, unexpected refund-like operations.",
+    "recommendation": "Add explicit validation at the top of process_payment() that rejects amount values that are not positive integers (assuming the convention is cents), and enforce a reasonable maximum."
+  },
+  {
+    "id": "SEC-006",
+    "owasp_category": "A09:2021 – Security Logging and Monitoring Failures",
+    "location": "record_transaction(), logger.info call",
+    "severity": "MEDIUM",
+    "description": "The full SQL query including user_id, amount, and charge_id is written to the info log. Depending on where logs are shipped, this could expose PII and financial data in log storage systems that have weaker access controls than the database.",
+    "recommendation": "Remove the full query from the log line; log only the user_id and a success/failure status, never the raw query string."
+  },
+  {
+    "id": "SEC-007",
+    "owasp_category": "A02:2021 – Cryptographic Failures",
+    "location": "get_payment_history(), return value",
+    "severity": "MEDIUM",
+    "description": "get_payment_history() returns raw database rows that the docstring itself acknowledges include card_last4 and email. These fields are returned to the caller with no filtering, meaning any layer that calls this function receives PII it may not need.",
+    "recommendation": "Define an explicit return schema (e.g., a dataclass or TypedDict) that includes only the fields the caller legitimately needs, and strip sensitive columns before returning."
+  }
+]

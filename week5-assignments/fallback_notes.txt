@@ -1,0 +1,9 @@
+== FALLBACK SCENARIO — OBSERVATION NOTES ==
+
+To test fallback behaviour, I intentionally passed the Security Agent a truncated version of processor.py that cut off mid-function, stopping just before the record_transaction() and get_payment_history() definitions. The agent completed its run but only returned two findings (the hardcoded key and the missing amount validation), missing the SQL injection issues entirely because those functions were not in the input.
+
+What broke: the agent had no way to know the input was incomplete. It did not flag the truncation or say "I may be missing context." It just produced a shorter findings list that looked valid, which is the dangerous failure mode — a silent miss rather than an obvious error.
+
+How to detect this in a pipeline: the most practical guard is a pre-flight step that checks the character count or line count of the input against the known file size before sending to the agent. If the input is below a threshold, the pipeline should abort and log a warning rather than proceeding. Alternatively, you can ask the agent to output the names of every function it reviewed as part of its structured output, then diff that list against the expected function names from a quick AST parse of the real file.
+
+Retry strategy: on detection of a truncated input, the pipeline should re-read the source file fresh from disk (not from a cached or streamed copy), confirm its size matches the expected value, split it into chunks if it exceeds the context window, and re-run the agent on each chunk before merging findings. A maximum of two retries is reasonable before alerting a human reviewer.
