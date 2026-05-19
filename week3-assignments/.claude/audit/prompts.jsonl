@@ -1,5 +1,0 @@
-{"timestamp": "2025-05-15T09:11:50.001Z", "event": "UserPromptSubmit", "session_id": "sess_abc123", "prompt_length": 42, "prompt_preview": "/review"}
-{"timestamp": "2025-05-15T09:12:55.334Z", "event": "UserPromptSubmit", "session_id": "sess_abc123", "prompt_length": 48, "prompt_preview": "/test-gen"}
-{"timestamp": "2025-05-15T09:13:40.112Z", "event": "UserPromptSubmit", "session_id": "sess_abc123", "prompt_length": 45, "prompt_preview": "/commit"}
-{"timestamp": "2025-05-15T09:14:10.889Z", "event": "UserPromptSubmit", "session_id": "sess_abc123", "prompt_length": 7, "prompt_preview": "yes"}
-{"timestamp": "2025-05-15T09:14:30.221Z", "event": "UserPromptSubmit", "session_id": "sess_abc123", "prompt_length": 44, "prompt_preview": "now push and create the PR"}
