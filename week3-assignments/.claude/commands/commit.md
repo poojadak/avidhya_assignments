@@ -1,48 +1,50 @@
 # /commit — Smart Commit Message Generator
 
-Analyse staged changes and generate a Conventional Commits message, then commit.
+Analyse the staged diff and generate a proper commit message, then commit.
+
+## What this does
+
+1. Reads `git diff --staged` to understand what changed
+2. Figures out the type of change (feat, fix, chore, etc.)
+3. Writes a commit message following our conventional commits format
+4. Shows you the message and asks for confirmation
+5. Runs the commit
 
 ## Steps
 
-1. Run `git diff --staged` to get the full diff.
-   If nothing is staged, tell the user: "Nothing is staged. Run `git add <files>` first."
-   Stop here if nothing is staged.
+```
+Run: git diff --staged
+Run: git diff --staged --stat
+```
 
-2. Run `git diff --staged --stat` to get the file summary.
+Based on the diff, determine:
 
-3. Analyse the diff to determine:
-   - **Type:** What kind of change is this?
-     - `feat` — new feature or endpoint
-     - `fix` — bug fix
-     - `test` — adding or fixing tests only
-     - `refactor` — code restructure with no behaviour change
-     - `docs` — documentation only
-     - `chore` — dependency updates, config changes
-     - `perf` — performance improvement
-   - **Scope:** Which module was primarily changed?
-     (`core`, `redirect`, `analytics`, `expiry`, `validation`, `api`, `hooks`, `ci`)
-   - **Short description:** ≤ 72 chars, imperative mood, no full stop.
-     Example: "add rate limiting to shorten endpoint"
-   - **Body:** 2-3 sentences explaining *what* changed and *why* (not how).
-   - **Refs:** If you can infer a ticket number from the branch name, include `Refs: #N`.
+- **Type**: `feat` (new feature), `fix` (bug fix), `chore` (tooling/deps), `docs` (docs only), `test` (tests only), `refactor` (no behaviour change)
+- **Scope**: the part of the codebase affected (e.g. `auth`, `articles`, `users`, `middleware`)
+- **Description**: one short sentence, present tense, lowercase, no period at end
 
-4. Show the proposed commit message to the user:
-   ```
-   Proposed commit message:
-   ─────────────────────────────
-   <type>(<scope>): <short description>
+## Commit message format
 
-   <body>
+```
+<type>(<scope>): <description>
 
-   Refs: #<ticket> (if found)
-   ─────────────────────────────
-   ```
+<optional body — only if the change needs explanation>
+```
 
-5. Ask: "Commit with this message? (yes / edit / cancel)"
+Examples:
+- `feat(articles): add pagination to article list endpoint`
+- `fix(auth): return 401 instead of 500 on expired token`
+- `test(users): add follow/unfollow endpoint tests`
 
-6. If **yes**: run `git commit -m "<message>"` and confirm success.
-   If **edit**: show the message in an editable block and wait for the user to provide the revised version, then commit.
-   If **cancel**: stop without committing.
+## Rules
 
-7. After a successful commit, print:
-   "✅ Committed. Run /ship to open a PR, or push manually with `git push`."
+- Description must be under 72 characters
+- No "updated", "changed", or "modified" — be specific about what it does
+- If multiple things changed, describe the most important one and list the rest in the body
+
+## Output
+
+Show the proposed commit message, then ask: **"Commit with this message? (yes/no)"**
+
+If yes: run `git commit -m "<message>"`
+If no: ask what to change and regenerate.

@@ -1,129 +1,84 @@
-# CLAUDE.md — URL Shortener Service
-## Team Workflow Rules & Architecture Conventions
+# CLAUDE.md — Team Workflow Rules & Conventions
 
-> This file is the single source of truth for how we build, review, test, and ship code.
-> Claude Code reads this file automatically before every session. Keep it updated.
-
----
+This file tells Claude how our team works. Read this before doing anything in this repo.
 
 ## Project Overview
 
-Python + Flask REST API that shortens URLs, tracks analytics, and enforces expiry.
-Target repo: `poojadak/avidhya_assignments` (Week 2 shortener in `url-shortener/`)
+We're working on a Node.js + Express REST API (based on the RealWorld spec). It has user auth, articles, comments, and tags. Tests are written with Jest.
 
-**Stack:** Python 3.12 · Flask 3.x · SQLAlchemy · SQLite (dev) · pytest
+## Architecture
 
----
-
-## Architecture Conventions
-
-### Layer Rules
 ```
-src/routes.py      → HTTP only. No business logic. No DB queries.
-src/services.py    → All business logic. No Flask imports.
-src/models.py      → SQLAlchemy models only. No service logic.
-src/validators.py  → Pure functions. No side effects.
-src/extensions.py  → Shared db/limiter singletons. Nothing else.
+src/
+  routes/       # Express route handlers
+  models/       # Mongoose models
+  middleware/   # Auth, validation, error handling
+  config/       # DB connection, env config
+tests/
+  unit/         # Unit tests for models and helpers
+  integration/  # API endpoint tests
 ```
 
-- **Never** import `flask.request` inside `services.py` or `models.py`
-- **Never** put raw SQL in routes — always go through the service layer
-- **Always** use the `ok()` / `err()` envelope helpers for JSON responses
-- Response shape is always: `{ "success": bool, "data": object|null, "error": string|null }`
+## Coding Conventions
 
-### File Naming
-- Snake_case for all Python files and functions
-- Module-level docstring on every new file listing which REQ-IDs it satisfies
+- Use `async/await` instead of `.then()` chains
+- Always handle errors with try/catch — never swallow exceptions silently
+- Keep route handlers thin — business logic goes in a service layer if it gets complex
+- Use `const` by default, `let` only when you need to reassign
+- No `var`
+- Indent with 2 spaces
+- Single quotes for strings
 
-### Database
-- Use SQLAlchemy ORM exclusively — no raw `db.engine.execute()`
-- Migrations via Flask-Migrate (Alembic); never edit the DB directly
-- Every new column needs a migration file
+## Naming
 
----
-
-## Code Style
-
-- PEP 8 strictly enforced (max line length: 100)
-- Type hints on all function signatures
-- Docstrings on all public functions (Google style)
-- No bare `except:` clauses — always catch specific exceptions
-- f-strings preferred over `.format()` or `%`
-
----
+- Files: `kebab-case.js`
+- Variables and functions: `camelCase`
+- Classes and models: `PascalCase`
+- Constants: `UPPER_SNAKE_CASE`
+- Test files: `*.test.js` next to the file they test, or inside `tests/`
 
 ## Testing Standards
 
-- **Framework:** pytest + pytest-flask
-- **Coverage target:** ≥ 85% on all new code
-- **Test file location:** `tests/test_<module>.py` mirroring `src/<module>.py`
-- **Naming:** `test_should_<outcome>_when_<condition>`
-- **Fixtures:** Define in `tests/conftest.py`, never inline in test files
-- Every test must have a `# Tests: REQ-XXX-NNN` comment
-- No real DB or network calls in unit tests — use in-memory SQLite
-- Integration tests go in `tests/integration/` and are tagged `@pytest.mark.integration`
-
----
+- Every new route needs at least one integration test
+- Every utility function needs a unit test
+- Aim for 70%+ coverage on new code (we check this in CI)
+- Test file naming: `user.test.js` for `user.js`
+- Use descriptive test names: `"should return 401 when token is missing"` not `"test auth"`
 
 ## Git Workflow
 
-### Branch Naming
-```
-feature/<ticket-id>-short-description
-bugfix/<ticket-id>-short-description
-hotfix/<ticket-id>-short-description
-```
+- Branch naming: `feature/short-description`, `fix/short-description`, `chore/short-description`
+- Commit messages: follow conventional commits format (see below)
+- Never commit directly to `main`
+- PRs need at least one reviewer before merge
+- Squash commits on merge
 
-### Commit Message Format (Conventional Commits)
+## Commit Message Format
+
 ```
 <type>(<scope>): <short description>
 
-Body: what changed and why (not how)
-Refs: #<ticket-id>
+<optional body>
 ```
-Types: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `perf`
-Scopes: `core`, `redirect`, `analytics`, `expiry`, `validation`, `api`, `hooks`, `ci`
 
-### PR Rules
-- Every PR needs: description, test evidence, screenshot/curl output if API change
-- Minimum 1 approval before merge
-- Squash merge only — no merge commits on main
-- PR title must follow the same Conventional Commits format as commit messages
+Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`
 
----
+Examples:
+- `feat(auth): add refresh token support`
+- `fix(articles): return 404 when article not found`
+- `test(users): add missing profile endpoint tests`
 
-## Security Rules
+## Things Claude Should Never Do
 
-- **Never** commit secrets, API keys, or passwords — use `.env` and `python-dotenv`
-- **Never** use `shell=True` in `subprocess` calls
-- Input validation happens in `src/validators.py` — nowhere else
-- All SQL via ORM parameterised queries — string interpolation in queries is a firing offence
-- Rate limiting is mandatory on all write endpoints
+- Never run `rm -rf` on anything
+- Never push to `main` directly
+- Never commit secrets, API keys, or passwords
+- Never modify files outside `src/`, `tests/`, or `docs/` without asking first
+- Never drop or truncate database tables
 
----
+## Things to Always Do
 
-## Allowed Directories for AI Edits
-
-Claude Code may only create or edit files in:
-- `src/` — application source
-- `tests/` — test suite
-- `docs/` — documentation
-- `.claude/` — governance config (hooks, commands)
-
-Claude Code must **never** edit:
-- `.env` or any secrets file
-- `migrations/` without explicit user instruction
-- `requirements.txt` without explicit user instruction
-
----
-
-## Definition of Done
-
-A task is done when ALL of these are true:
-1. ✅ Code follows layering rules above
-2. ✅ All existing tests still pass
-3. ✅ New tests written covering the change (≥ 85% coverage on changed files)
-4. ✅ No secrets or hardcoded config in code
-5. ✅ Commit message follows Conventional Commits format
-6. ✅ `/review` passes with no HIGH or CRITICAL findings
-7. ✅ PR description filled out
+- Run tests before committing (`npm test`)
+- Add a comment if a piece of code is non-obvious
+- Update the relevant test file when changing logic
+- Check that the linter passes (`npm run lint`)

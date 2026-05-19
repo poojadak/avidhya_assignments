@@ -1,99 +1,66 @@
-# /onboard — New Team Member Onboarding Guide
+# /onboard — New Team Member Orientation
 
-Generate a personalised architecture summary, key file map, and day-1 checklist
-for someone joining the project for the first time.
+Generate an architecture summary and orientation guide for someone joining the project.
+
+## What this does
+
+Reads the codebase and produces a practical "here's how everything works" guide for a new developer on the team.
 
 ## Steps
 
-1. Read these files in order:
-   - `CLAUDE.md`
-   - `README.md` (if it exists)
-   - `requirements.txt`
-   - `src/__init__.py`
-   - `src/models.py`
-   - `src/services.py`
-   - `src/routes.py`
-   - `src/validators.py`
-   - `tests/test_url_shortener.py`
-
-2. Run `git log --oneline -10` to show the last 10 commits and give a sense of recent activity.
-
-3. Run `python -m pytest tests/ -v --tb=short 2>&1` to confirm the test suite passes.
-
-4. Generate the following onboarding document:
-
----
-
-## 👋 Welcome to the URL Shortener Service
-
-### What this project does
-<2-3 sentence plain-English summary>
-
-### Tech stack
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Web framework | Flask | ... |
-| ORM | SQLAlchemy | ... |
-| DB (dev) | SQLite | ... |
-| Tests | pytest | ... |
-
-### Architecture — how the layers connect
-<Mermaid diagram showing the request flow: routes → services → models → DB>
-
-### Key files — where things live
-| File | Purpose | When you'll edit it |
-|------|---------|---------------------|
-| `src/routes.py` | HTTP endpoints | Adding/changing API shape |
-| `src/services.py` | Business logic | New features or bug fixes |
-| `src/models.py` | DB schema | New fields or tables |
-| `src/validators.py` | Input validation | New validation rules |
-| `tests/` | Test suite | Always — after every change |
-| `CLAUDE.md` | Team rules | When conventions change |
-| `.claude/hooks/` | Safety guardrails | When adding new governance |
-
-### How to run it locally
-```bash
-cd url-shortener/
-pip install -r requirements.txt
-python run.py
-# API available at http://localhost:5000
+```
+Run: find src/ -type f -name "*.js" | head -40
+Run: cat package.json
+Run: cat README.md
+Run: git log --oneline -20
 ```
 
-### How to run the tests
-```bash
-python -m pytest tests/ -v
-python -m pytest tests/ --cov=src --cov-report=term-missing
+Then explore the key folders to understand the structure.
+
+## What to produce
+
+### 1. Project overview (2-3 sentences)
+What does this app do? What's the tech stack?
+
+### 2. How to get started
+- Clone, install, run locally
+- Environment variables needed (check `.env.example`)
+- How to run tests
+
+### 3. Folder map
+Explain what each folder does in plain English.
+
+```
+src/
+  routes/      → <explain>
+  models/      → <explain>
+  middleware/  → <explain>
+  config/      → <explain>
+tests/
+  unit/        → <explain>
+  integration/ → <explain>
 ```
 
-### The 5 slash commands you'll use every day
-| Command | When to use |
-|---------|-------------|
-| `/review` | Before every commit |
-| `/test-gen` | After writing new code |
-| `/commit` | When tests pass and review is green |
-| `/ship` | When a feature is ready for PR |
-| `/onboard` | Run again if architecture changes |
+### 4. The 5 most important files to read first
+List them with a one-line reason for each.
 
-### Workflow for your first feature
-1. `git checkout -b feature/<ticket>-<description>`
-2. Make your changes in `src/`
-3. `git add <files>`
-4. `/review` — fix anything flagged
-5. `/test-gen` — tests generated + run
-6. `/ship` — commit + push + PR description
+### 5. How we work
+- Branching strategy
+- How to make a PR
+- Commit message format
+- Who to ask about what
 
-### Recent commits (last 10)
-<paste git log output>
+### 6. Common tasks and how to do them
+- Add a new route
+- Add a new model
+- Write a test
+- Run the linter
 
-### Test suite status
-<paste pytest output>
+### 7. Things to be careful about
+- Known gotchas
+- Things that have broken before
+- Areas of the code that are fragile
 
-### Things to ask your team lead
-- Where to find open tickets
-- How to access staging environment
-- Slack channel for code review requests
+## Format
 
----
-
-5. Save this document to `docs/onboarding-<YYYY-MM-DD>.md`.
-6. Print: "✅ Onboarding guide saved. Share docs/onboarding-<date>.md with your new teammate."
+Make this readable. Use headers, short paragraphs, and bullet points. Imagine you're writing it for someone who is smart but new to this specific codebase.

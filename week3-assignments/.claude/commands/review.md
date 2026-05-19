@@ -1,46 +1,48 @@
-# /review — AI-First Code Review
+# /review — AI Code Review
 
-Review all staged changes against CLAUDE.md conventions and flag issues before commit.
+Review all staged changes against our team's conventions in CLAUDE.md.
+
+## What this does
+
+1. Runs `git diff --staged` to see what's about to be committed
+2. Checks the changes against our coding standards
+3. Flags any issues before they get committed
 
 ## Steps
 
-1. Run `git diff --staged` to get the full diff of staged changes.
+```
+Run: git diff --staged
+```
 
-2. If there are no staged changes, run `git diff HEAD~1` to review the last commit instead.
-   Inform the user which diff you're reviewing.
+Look at everything that changed and check for:
 
-3. Review the diff against **every rule in CLAUDE.md**. Check specifically:
-   - **Layer violations** — business logic in routes, Flask imports in services, raw SQL anywhere
-   - **Response envelope** — all JSON responses use `ok()` / `err()` helpers
-   - **Type hints** — all new function signatures have type hints
-   - **Docstrings** — all new public functions have Google-style docstrings
-   - **Error handling** — no bare `except:` clauses
-   - **Security** — no hardcoded secrets, no `shell=True`, no string interpolation in queries
-   - **Test coverage** — are new functions covered by existing or new tests?
-   - **Naming** — snake_case, Conventional Commits format for any commit messages present
+- **Code style**: Are we using async/await? Single quotes? 2-space indent?
+- **Error handling**: Are there try/catch blocks where needed? Any silent failures?
+- **Naming**: Do files, variables, and functions follow our naming conventions?
+- **Test coverage**: If logic changed, is there a corresponding test change?
+- **Security**: Any hardcoded secrets, API keys, or passwords?
+- **Scope**: Are edits only inside `src/`, `tests/`, or `docs/`?
 
-4. Output your findings as a structured report:
+## Output format
+
+Give a review in this format:
 
 ```
-## Code Review Report
+## Code Review Summary
+
 **Files changed:** <list>
-**Lines added / removed:** +X / -Y
+**Overall:** PASS / NEEDS CHANGES / FAIL
 
-### 🔴 CRITICAL (must fix before commit)
-- <finding>
+### Issues Found
+- [CRITICAL] <issue> — must fix before commit
+- [WARNING] <issue> — should fix, but won't block
+- [SUGGESTION] <issue> — optional improvement
 
-### 🟡 WARNING (should fix)
-- <finding>
+### What looks good
+- <things done well>
 
-### 🟢 SUGGESTIONS (optional improvements)
-- <finding>
-
-### ✅ Looks Good
-- <what was done well>
-
-**Verdict:** APPROVED | CHANGES REQUESTED
+### Verdict
+Ready to commit / Fix these issues first
 ```
 
-5. If verdict is CHANGES REQUESTED, list the exact changes needed as a numbered action list.
-
-6. If verdict is APPROVED, say: "✅ Ready to commit. Run /commit to generate your commit message."
+If there are no staged changes, say so and stop.

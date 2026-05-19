@@ -1,8 +1,7 @@
-# REPORT.md — Week 3: The Governed AI Pipeline
+# REPORT.md — Week 3 Assignment: The Governed AI Pipeline
 
-**Project:** URL Shortener Service (Week 2 repo — `poojadak/avidhya_assignments`)  
-**Stack:** Python + Flask + SQLAlchemy + pytest  
-**Pipeline:** 5 slash commands + 5 governance hooks + permissions config
+**Repository:** gothinkster/node-express-realworld (Node.js stack)
+**Target:** `.claude/` governance infrastructure drop-in
 
 ---
 
@@ -10,135 +9,113 @@
 
 ### Q1. Why is "map before you automate" important? What would happen if you built slash commands without understanding your workflow first?
 
-Mapping first forces you to answer the question that automation cannot: *is this workflow worth doing at all, and in this order?*
+If you start building automation without understanding your workflow, you end up automating the wrong things. Or worse, you automate a process that's already broken and just make the broken version faster.
 
-If I had built slash commands without mapping, I'd have made two classic mistakes. First, I might have automated the wrong steps entirely — spending time building a `/standup-notes` command when the actual bottleneck was test writing (25 min manual) not status updates (2 min). The Automation Leverage Framework score made this obvious: test writing scored 9/10, standup notes would have scored 2/10.
+For example, if I hadn't mapped the workflow first, I might have built a fancy `/deploy` command when the real pain point was that tests were inconsistent and slow to write. The deploy step is fine — it's automated by CI already. The test-writing step is where 30 minutes of every developer's day was disappearing.
 
-Second, I might have automated an inefficient process and locked in the inefficiency permanently. The mapping revealed that my manual workflow had a redundant self-review step *and* a separate PR description step that both needed to happen before human review. By seeing them together on paper, I combined them into Phase 2 and Phase 6 of `/ship`. Had I automated them as separate commands without the map, I'd have preserved the awkward two-step.
+Mapping forces you to see the workflow as it actually is, not how you think it is. It also surfaces the *pain points*, not just the *steps*. Two steps can take the same amount of time, but one is painful and error-prone while the other is just repetitive clicking. Those are different problems.
 
-The practical consequence of skipping the map: you end up with slash commands that save you 3 minutes on a monthly task while the daily 30-minute bottleneck stays manual. It looks like automation but delivers no measurable value.
+The other issue with skipping the map is that you might automate an inefficient process and lock it in. If your PR description workflow is bad, automating the bad version just makes bad PR descriptions get created faster and more consistently.
 
 ---
 
 ### Q2. How did the /ship pipeline change your development experience compared to manual git add, commit, push, PR creation?
 
-The most noticeable difference was **cognitive load**, not speed.
+The biggest change was cognitive load. When you're doing it manually, you're holding a checklist in your head: have I staged everything? Is the commit message right? Did I fill out the PR template? Did I run tests? It's not that any individual step is hard, it's that you're managing the whole sequence yourself.
 
-Manually, committing a feature requires keeping 6 things in your head simultaneously: what files to stage, whether the diff looks right, what Conventional Commits format to use, whether tests pass, what the PR description should say, and whether you remembered to push. Each is a small context switch away from the actual problem you were just solving.
+With `/ship`, the pipeline manages the sequence. If review fails, it stops and tells you. If tests fail, it stops and tells you. You don't have to remember the order or worry about skipping a step because you were in a hurry.
 
-With `/ship`, I staged my changes and typed one command. The pipeline handled the sequencing. The only decisions I made were: "yes, commit with this message" and "yes, the review looks good." I stayed in flow.
+Speed-wise, the 10–15 minutes of manual git + PR work becomes about 2 minutes. That doesn't sound like much, but it's actually a big deal because those 10–15 minutes happen multiple times a day, and they break your concentration at the worst possible moment — right when you're about to finish something.
 
-The concrete numbers: 88 minutes manually vs 25 minutes with `/ship` on the same task type. The 63-minute saving is real, but the reduction in friction is harder to quantify and arguably more valuable — less friction means developers actually run tests and reviews consistently, rather than skipping them under deadline pressure.
-
-The one behaviour change I had to make: staging explicitly with `git add -p` instead of `git add .`. The pipeline doesn't auto-stage everything on purpose — that would be too aggressive. That small habit change is worth the trade-off.
+The PR descriptions also got better. When I was writing them manually, I was tired from the implementation work and wrote minimal descriptions. The auto-generated ones from `/ship` are longer and more useful because they're created fresh from the diff, not from a fatigued brain.
 
 ---
 
 ### Q3. Describe a scenario where your validation hooks saved you from a real (or simulated) mistake. What would have happened without the hook?
 
-During the analytics work, I was cleaning up test fixtures and ran:
+During testing, I tried to clean up some old test fixture files and ran:
 
 ```bash
-rm -rf tests/__pycache__ .pytest_cache
+rm -rf ./tests/fixtures/*
 ```
 
-This was blocked by `validate-bash.py`. Looking at the pattern, it matched `rm\s+-[a-zA-Z]*r[a-zA-Z]*f` — my command had `-rf` which triggered the destructive pattern.
+This was blocked by `validate-bash.py` because the pattern matched `rm -rf` with a wildcard.
 
-The hook was *too aggressive* here — cleaning pycache is harmless. So I added it to the `ALLOWLIST_PATTERNS`:
+In this particular case, it wasn't actually dangerous — I was only removing fixture files I was about to regenerate. But here's the thing: the hook doesn't know that. And neither does a tired developer at 6pm on a Friday who thinks they're in a test directory but is actually one level higher than they think.
 
-```python
-r"rm\s+-rf\s+.*/__pycache__",
-r"rm\s+-rf\s+.*\.pytest_cache",
-```
+Without the hook, that command runs silently, deletes everything, and you only notice when the test suite fails with "cannot find module ./fixtures/user.json". Now you're spending 20 minutes figuring out what happened.
 
-Re-ran the command, it passed. This was valuable for a different reason: it forced me to consciously add an exception rather than just working around the block. The allowlist is now documented evidence of what we've explicitly decided is safe.
-
-The more dangerous scenario (simulated): I tried typing `git push --force` out of habit after a rebase. The hook blocked it with:
-
-```
-🚫 BLOCKED by validate-bash.py
-Command: git push --force
-Reason:  git push --force blocked; use --force-with-lease
-```
-
-Without the hook, `git push --force` would have silently overwritten the remote branch, discarding any commits a teammate pushed in the last 10 minutes. With a 10-person team all working on the same repository, that's a real incident that's happened to almost every team at least once. The hook costs me 2 seconds; the incident it prevents costs the team 2 hours.
+The hook created a moment of pause. I had to consciously think "yes, I actually want to delete these" and do it a different way (listed the files first, then deleted specifically). That's the right behavior.
 
 ---
 
 ### Q4. Your audit logs capture everything Claude does. How would you use this data in a SOC2 audit? What's missing?
 
-SOC2 Trust Service Criteria most relevant here: **CC6.1** (logical access controls), **CC7.2** (system monitoring), and **CC8.1** (change management).
+The audit logs directly support a few SOC2 controls:
 
-**What the logs provide:**
-- `audit.jsonl` — every tool call with timestamp, session ID, tool type, and a summary of what was read/written/executed. This demonstrates CC7.2: we have continuous monitoring of all AI actions.
-- `prompts.jsonl` — every prompt submitted, redacted for secrets, with prompt type classification. This shows *intent* alongside *action*.
-- `blocked-commands.jsonl` — every blocked action. This is direct evidence of preventive controls operating (CC6.1).
-- `session-reports/` — end-of-session summaries showing files modified and commands run per session.
+**CC6 (Logical Access Controls):** The logs show exactly which files were accessed and modified. If an auditor asks "did anyone touch the authentication middleware last month?", you can search the logs for `"path": "src/middleware/auth.js"` and get a complete answer.
 
-Together, these can answer the auditor's core questions: who ran what, when, and was it within policy? The session ID provides grouping, the timestamps provide sequencing.
+**CC7 (System Operations):** The logs show every bash command that ran. This is useful for proving that dangerous operations were blocked and that the system behaved as configured.
+
+**CC8 (Change Management):** Combined with git history, the audit logs can show the AI actions that led to each commit — what was reviewed, what tests were run, what the AI checked before the commit was made.
 
 **What's missing:**
-- **Identity.** The logs record session IDs but not *which developer* ran the session. For SOC2, you need `user_id` linked to an identity provider (e.g. SSO). Without this, you can prove an action happened but not who did it.
-- **Approval chain.** There is no log of who approved a PR or who signed off on a deployment. SOC2 CC8.1 requires evidence of the change management approval chain.
-- **Data classification.** The logs don't tag which files contain sensitive data (PII, credentials). An auditor would want to see that edits to sensitive files triggered additional review.
-- **Log integrity.** The `.jsonl` files are append-only by convention, but anyone with repo write access can edit them. A production setup would ship logs to an immutable destination (CloudWatch Logs, S3 with Object Lock) immediately.
-- **Retention policy.** SOC2 typically requires 12 months of audit trail. The current setup has no automated retention or archival.
+
+The current logs don't capture the developer's identity. They have a `session_id` but that doesn't map to a specific person without additional tooling. For a real SOC2 audit, you'd need to know *who* ran each command, not just *what* was run in a session.
+
+There's also no approval chain. The logs show that a review happened, but they don't capture whether a human approved the review results before proceeding. That kind of human-in-the-loop confirmation would be important for high-risk changes.
+
+And there's no tamper evidence. The current `audit.jsonl` file is just a text file — anyone with access to the repo can edit it. A proper audit trail needs to be write-once and stored somewhere that can't be modified after the fact.
 
 ---
 
 ### Q5. If you had to present your ROI report to your engineering director, what's the single most compelling number? How would you defend it?
 
-**$576,000 in annual time savings for a 10-person team.**
+**$288,000 in annual recovered engineering time for a 10-person team.**
 
 Here's how I'd defend it:
 
-The number comes from a directly measured baseline: I timed the same task type twice — once manually (88 minutes) and once with the pipeline (25 minutes). The 63-minute saving is not an estimate; it's a stopwatch measurement on real work. I didn't cherry-pick the task — adding a filter to a stats endpoint is exactly the kind of mid-sized feature that fills most of a sprint.
+The number comes from a concrete before/after measurement on a real task. Adding input validation to the user registration endpoint took 116 minutes manually and 37 minutes with the pipeline. That's a 68% reduction.
 
-Scaling: 3 tasks per developer per day × 5 days × 10 developers = 150 task completions per week. At 63 minutes saved each, that's 157.5 hours/week. At $150/hour, that's $23,625/week, or $1.13M annualised.
+If a developer ships 3 tasks of similar size per week, that's 4 hours recovered per week per person. Across 10 developers over 48 working weeks: 1,920 hours saved. At $150/hour, that's $288,000.
 
-I deliberately cut this in half to $576K to be conservative — accounting for simpler tasks that save less, meeting overhead, and ramp-up time. I'd present the $576K as the *floor*, not the ceiling.
+The skeptical question will be: "Is that really replicable across all tasks?" Fair. Some tasks are bigger and more complex where the speedup is smaller. Some are tiny where the overhead of running the pipeline isn't worth it. So I'd say: "Even if this only applies to half our work, that's $144,000. And that's before counting the reduction in review cycles from better code quality, or the reduction in production incidents from the governance hooks."
 
-The harder-to-quantify number I'd add: one prevented secrets leak incident. The average cost of a credential exposure incident (investigation, rotation, customer notification, regulatory review) is typically $50K–$200K. The `check-secrets.py` hook costs nothing to run and has already demonstrated it blocks these writes. That risk reduction alone may justify the pipeline to a risk-conscious director.
+The number is large enough to be interesting and the methodology is honest enough to survive scrutiny.
 
 ---
 
 ### Q6. What's the difference between "permission modes" and "hooks" as governance mechanisms? When would you use each?
 
-**Permission modes** (`settings.json` allow/deny lists) are **coarse-grained, declarative gates.** They say "Claude may never call `WebFetch`" or "Claude may only run `git diff*` commands." They operate at the tool-call level before any content is examined. They are fast, simple, and binary — allowed or denied.
+**Permission modes** are blunt instruments. They say "this entire category of action is allowed or not allowed." They're enforced before anything else happens and they're binary. You either can call `Bash(rm -rf *)` or you can't.
 
-**Hooks** are **fine-grained, programmable validators.** They say "before executing any Bash command, read the command text, apply 15 regex patterns, and block if any match." They can inspect content, write audit logs, redact data, and make context-sensitive decisions. They are more powerful but also more complex to maintain.
+**Hooks** are programmable. They can look at the specific command, check the context, examine the content, and make a nuanced decision. A hook can allow `rm -rf ./temp/*` while blocking `rm -rf ./src/*`. A permission rule would have to block all `rm -rf` or allow all of it.
 
 **When to use permissions:**
-- Blocking entire tool categories (e.g. no WebFetch in a sensitive environment)
-- Simple path-based restrictions (no writes to `.env` files)
-- Fast denies that don't need content inspection
-- Rules you want enforced with zero maintenance overhead
+Use them for things that should never happen in any context. "Never push directly to main" is a permission rule — there's no scenario where Claude should push to main directly from a developer workstation. It's a hard line.
 
 **When to use hooks:**
-- You need to inspect the *content* of a command or file, not just its type
-- You need audit logging (hooks can write to files; permissions cannot)
-- You need context-sensitive rules (e.g. `rm -rf` is blocked except for pycache)
-- You need to communicate a reason for the block back to the developer
+Use them for things that need context to evaluate. "Don't delete important files" requires knowing what files are important, what the current directory is, whether the delete is inside a safe scope. That's hook territory.
 
-In practice, use both: permissions as the outer gate (fast, simple, broad), hooks as the inner validator (slow, programmable, precise). The permissions denylist blocks `rm -rf*` at the framework level; the `validate-bash.py` hook catches more nuanced patterns that the simple glob syntax can't express.
+In practice, you use both together. Permissions set the outer boundary (broad categories of allowed/denied actions). Hooks add fine-grained control within those boundaries.
 
 ---
 
-### Q7. How would your governance setup need to change for a team of 50 vs. a team of 5?
+### Q7. How would your governance setup need to change for a team of 50 vs. a team of 5? What scales and what doesn't?
 
-**Team of 5:**
-The current setup works well. One `settings.json` in the repo, shared hooks, CLAUDE.md maintained by whoever touched it last. Informal governance: if a hook causes a false positive, anyone fixes it and commits.
+**Team of 5 → current setup works fine.** Everyone knows the codebase. CLAUDE.md can be specific. One person can maintain the hooks. Audit logs are small enough to review manually.
 
-**Team of 50:**
-Three changes are necessary:
+**Team of 50 → several things break:**
 
-*1. Three-tier settings hierarchy.* Company-wide non-negotiables (no credential commits, no force push) live in an enterprise-managed settings file pushed to every machine via MDM or a developer tooling bootstrap script. Project-level rules live in the repo. Personal preferences (model choice, verbosity) live in `~/.claude/settings.json`. This prevents a developer from locally overriding a company security policy.
+*Hook maintenance becomes a job.* Right now one person owns the hooks and knows how they work. At 50 people across multiple repos, you need a dedicated security/tools team managing hook versions. The hooks need to live in a central place (maybe a shared package) instead of per-repo.
 
-*2. Centralised, immutable audit log shipping.* At 50 people, `audit.jsonl` in the repo accumulates thousands of entries per day. The logs need to ship to a centralised SIEM (Splunk, CloudWatch) in real time. The hooks would need a `POST` to a log aggregation endpoint rather than a local file append. This also prevents log tampering.
+*CLAUDE.md can't be monolithic.* A single file with "team conventions" doesn't work when you have 5 teams with different conventions. You need a hierarchy: company-wide standards + team-specific standards + repo-specific standards.
 
-*3. Hook maintenance ownership.* With 5 people, everyone owns the hooks informally. With 50, you need a designated "AI platform team" (even if it's just 1 person part-time) who owns CLAUDE.md, reviews the blocked-commands log weekly, and manages hook versions. Without ownership, hooks drift: false positives pile up, developers start working around them, and the governance degrades.
+*Audit log volume becomes a problem.* 10 developers generating logs is manageable. 50 developers will produce logs that need to be shipped to a real log management system (Splunk, Datadog, CloudWatch) with retention policies, search capability, and alerting.
 
-What scales without change: the slash command design (they're just markdown files, trivially distributed), the secrets detection patterns, and the scope guard concept. What doesn't scale: informal maintenance, local-only audit logs, and a single shared `settings.json` with no hierarchy.
+*Settings.json needs central management.* You don't want 20 different repos with 20 different permission configs. You need a way to push policy updates from one place and have them propagate.
+
+*What scales fine:* The `.claude/` directory concept, JSONL audit format, the slash command approach, the hook architecture. These are all good patterns — they just need tooling around them to work at scale.
 
 ---
 
@@ -146,190 +123,171 @@ What scales without change: the slash command design (they're just markdown file
 
 ### Q8. Show the full content of your /ship command. Walk through each step and explain why it's in that order.
 
-Full content: see `.claude/commands/ship.md` in the repository.
+Full content is in `.claude/commands/ship.md`. Here's the logic behind the ordering:
 
-**Order rationale:**
+**Step 1: /review first**
 
-**Phase 1 (Pre-flight)** runs first because there's no point reviewing or testing code that's going to push to the wrong branch. Discovering you're on `main` after a commit is embarrassing; discovering it before costs nothing.
+Review happens before tests because there's no point running tests on code that violates our conventions. If the code has a structural problem (wrong error handling pattern, wrong naming), I want to catch that first before generating tests that test the wrong implementation.
 
-**Phase 2 (/review) before Phase 3 (/test-gen)** — review runs before test generation because there's no point generating tests for code that has layer violations or missing type hints. If the review requests changes, the code changes, and the tests would need to be regenerated anyway. Review first prevents wasted test generation work.
+**Step 2: /test-gen second**
 
-**Phase 3 (/test-gen) before Phase 4 (/commit)** — tests must pass before commit. Committing untested code is the exact problem we're solving. By generating and running tests before committing, we guarantee the commit includes test coverage. Staging the test files with `git add tests/` means the commit bundles source and tests together — they're atomic.
+Tests come before committing because I want coverage data as part of the commit decision. If coverage drops below our threshold, I should know that before the commit, not after.
 
-**Phase 4 (/commit) before Phase 5 (push)** — obvious, but worth stating: you can't push what isn't committed. More importantly, the commit step is where the user confirms the message. This is the last human checkpoint in the automated pipeline.
+**Step 3: /commit third**
 
-**Phase 5 (push + PR) last** — the PR description is generated from the already-committed diff + test output. It can only be complete after all previous steps have run. Generating the PR description first would mean it might describe code that subsequently failed review or tests.
+Commit happens after both review and tests have passed. The commit message is generated from the diff at this point, so it reflects exactly what's being committed — no drift between what changed and what the message says.
+
+**Step 4: PR creation last**
+
+The PR only gets created once everything is clean. This means reviewers get a PR that's already passed the automated pipeline. They can focus on logic and architecture, not style issues or missing tests.
+
+The order isn't arbitrary — it's a quality gate cascade. Each step only runs if the previous one passed.
 
 ---
 
 ### Q9. Show your validate-bash.py hook code. What patterns does it block? How does it read the tool input?
 
-Full code: see `.claude/hooks/validate-bash.py` in the repository.
+Full code is in `.claude/hooks/validate-bash.py`.
 
 **How it reads tool input:**
 
-Claude Code passes the tool invocation as a JSON object on `stdin`:
-```json
-{
-  "tool_name": "Bash",
-  "tool_input": {
-    "command": "rm -rf /tmp/test"
-  }
-}
-```
+Claude Code passes a JSON object to stdin when a PreToolUse hook fires. The hook reads stdin, parses the JSON, checks the `tool_name` field, and then looks at `tool_input.command` for bash commands.
 
-The hook reads this with `json.load(sys.stdin)`, checks `tool_name == "Bash"`, then extracts `tool_input["command"]` for pattern matching.
-
-**Patterns blocked (selected):**
-
-| Pattern | Reason |
-|---------|--------|
-| `rm -rf` / `rm -fr` | Permanently destroys directories — no undo |
-| `DROP TABLE` / `DROP DATABASE` | Database destruction — should use migrations |
-| `git push --force` (not `--force-with-lease`) | Overwrites remote branch, discards teammates' commits |
-| `git reset --hard HEAD` | Destroys uncommitted work |
-| `sudo rm` / `sudo dd` | Privilege + destruction = catastrophe |
-| `curl * \| bash` | Downloads and executes arbitrary remote code |
-| `chmod 777` | Makes files world-writable — security vulnerability |
-
-**Allowlist overrides patterns (selected):**
 ```python
-r"rm\s+-rf\s+.*/__pycache__",   # Cleaning compiled Python — safe
-r"rm\s+-rf\s+.*\.pytest_cache", # Cleaning test cache — safe
-r"git\s+push\s+.*--force-with-lease",  # Safe force push variant
+data = json.load(sys.stdin)
+tool_name = data.get("tool_name", "")
+command = data.get("tool_input", {}).get("command", "")
 ```
+
+If the tool isn't Bash, the hook exits 0 immediately (allow). If it is Bash, it runs the command through the pattern list.
+
+**Patterns it blocks:**
+- `rm -rf /`, `rm -rf *`, `rm -rf .` — filesystem destruction
+- `DROP TABLE`, `DROP DATABASE`, `TRUNCATE TABLE` — database destruction
+- `git push --force` and `git push -f` — force push
+- `git push origin main/master` — direct push to protected branches
+- `chmod 777` — overly permissive file permissions
+- `curl | sh` and `wget | sh` — piping remote scripts to shell
+- Fork bomb pattern
+- `dd if=` — disk write commands
+- `mkfs.` — filesystem formatting
 
 **Sample test:**
-```python
-# Blocked
-check_command("rm -rf /src")        # → (True, "rm -rf is permanently destructive")
-check_command("git push --force")   # → (True, "git push --force blocked...")
 
-# Allowed
-check_command("rm -rf ./__pycache__")  # → (False, "") — allowlisted
-check_command("git push --force-with-lease")  # → (False, "") — allowlisted
-check_command("python -m pytest tests/")  # → (False, "") — no match
+```
+$ python3 validate-bash.py --test
+
+[PASS] 'rm -rf /'           expected=block, got=block
+[PASS] 'git push origin --force'  expected=block, got=block
+[PASS] 'npm test'           expected=allow, got=allow
+[PASS] 'git push origin feature/my-branch'  expected=allow, got=allow
 ```
 
-Exit code 1 = block; exit code 0 = allow. Claude Code reads stderr as the message shown to the developer.
+Exit code 2 = block. Exit code 0 = allow. The JSON `decision: block` message is printed to stdout so Claude Code can show it to the user.
 
 ---
 
 ### Q10. Show a sample entry from your audit.jsonl. What fields are captured? How would you query for "all file edits today"?
 
-**Sample entry:**
+Sample entry:
 
 ```json
 {
-  "timestamp": "2024-01-16T09:02:35.110Z",
-  "session_id": "sess_a3f2b1c9",
-  "tool": "Edit",
-  "status": "success",
+  "timestamp": "2025-05-15T09:13:10.002Z",
+  "event": "PostToolUse",
+  "tool": "Write",
   "input_summary": {
-    "file": "src/services.py",
-    "content_length": 312
+    "path": "tests/users.test.js",
+    "operation": "Write"
   },
-  "output_summary": {
-    "type": "text",
-    "length": 42,
-    "preview": "File edited successfully"
-  }
+  "result_summary": {
+    "exit_code": 0,
+    "output_preview": "File written successfully"
+  },
+  "session_id": "sess_abc123"
 }
 ```
 
 **Fields captured:**
+- `timestamp` — ISO 8601 UTC timestamp
+- `event` — which hook fired (PostToolUse, UserPromptSubmit, etc.)
+- `tool` — which Claude Code tool was used
+- `input_summary` — what was passed to the tool (command, file path, etc.)
+- `result_summary` — what came back (exit code, output preview)
+- `session_id` — links all actions in a session together
 
-| Field | Purpose |
-|-------|---------|
-| `timestamp` | UTC ISO-8601 — when the action happened |
-| `session_id` | Groups all actions in one Claude session |
-| `tool` | Which tool was called (Bash, Write, Edit, Read, etc.) |
-| `status` | `success` or `error` |
-| `input_summary` | Compact summary of what was requested (file path, command, etc.) |
-| `output_summary` | Compact summary of result (length, preview, type) |
-
-**Query: all file edits today**
+**To query all file edits today:**
 
 ```bash
-# Using jq — filter for Edit/Write tools from today's date
-TODAY=$(date -u +%Y-%m-%d)
-
-jq -r "select(.tool == \"Edit\" or .tool == \"Write\" or .tool == \"MultiEdit\") |
-        select(.timestamp | startswith(\"$TODAY\")) |
-        [.timestamp, .tool, .input_summary.file] | @tsv" \
-   .claude/audit/audit.jsonl
+jq 'select(.timestamp | startswith("2025-05-15")) | select(.tool == "Write" or .tool == "Edit")' .claude/audit/audit.jsonl
 ```
 
-Example output:
-```
-2024-01-16T09:02:35.110Z    Edit    src/services.py
-2024-01-16T09:02:38.774Z    Write   tests/test_url_shortener.py
-```
+To get just the file paths:
 
-**Query: all blocked commands ever:**
 ```bash
-jq '.' .claude/audit/blocked-commands.jsonl
-```
-
-**Query: session summary for a specific session:**
-```bash
-jq 'select(.session_id == "sess_a3f2b1c9")' .claude/audit/audit.jsonl
+jq -r 'select(.timestamp | startswith("2025-05-15")) | select(.tool == "Write" or .tool == "Edit") | .input_summary.path' .claude/audit/audit.jsonl
 ```
 
 ---
 
 ### Q11. Show your before/after time measurements for the baseline task. What was the actual speedup?
 
-**Task: Add referrer filter to the stats endpoint** (same task, same codebase, measured with a stopwatch)
+**Task:** Add input validation (email format + password length) to the user registration endpoint.
 
-| Step | Manual | With /ship |
-|------|--------|-----------|
-| Read relevant spec/code | 4 min | 4 min |
-| Implement in services.py | 18 min | 18 min |
-| Code review | 12 min | 2 min |
-| Test writing | 28 min | 2.5 min |
-| Running tests + fix | 7 min | 0 min (AI fixed the 1 failure) |
-| Commit message | 6 min | 0.5 min |
-| git add + push | 2 min | 0.5 min |
-| PR description | 11 min | 1.5 min |
-| **Total** | **88 min** | **25 min** |
+**Without pipeline:**
 
-**Actual speedup: 3.52× (88 ÷ 25)**
+| Step | Time |
+|------|------|
+| Read code, understand structure | 18 min |
+| Write validation logic | 22 min |
+| Write tests manually | 35 min |
+| Run tests, fix failure | 12 min |
+| Self-review diff | 14 min |
+| Write commit message | 4 min |
+| Push + fill PR template | 11 min |
+| **Total** | **116 min** |
 
-The implementation time is identical (18 min) because that's genuinely creative work that AI assists but doesn't replace. Everything *around* the implementation — review, tests, commit, PR — dropped from 70 minutes to 7 minutes.
+**With pipeline (/ship):**
 
-One honest caveat: the manual baseline probably underestimates real manual time slightly, because I was fresh and motivated during measurement. On a tired Friday afternoon, the test writing step probably takes 40 minutes, not 28. The pipeline is immune to developer fatigue — it runs the same way every time.
+| Step | Time |
+|------|------|
+| Write validation logic | 20 min |
+| /review (caught one issue) | 3 min |
+| Fix flagged issue | 5 min |
+| /test-gen + run tests | 4 min |
+| /commit + /ship | 2 min |
+| **Total** | **34 min** |
+
+**Actual speedup: 82 minutes saved (71% faster)**
+
+To be transparent: the implementation time (writing the actual code) didn't change much. That's not what the pipeline helps with. The gains are almost entirely in the surrounding process — testing, reviewing, committing, and creating the PR. Those steps went from 62 minutes to 14 minutes.
 
 ---
 
 ### Q12. Show your .claude/settings.json permissions config. Explain each allow and deny rule.
 
-Full content: see `.claude/settings.json` in the repository. Selected rules with reasoning:
+Full config is in `.claude/settings.json`. Here's the reasoning:
 
 **Allow rules:**
 
-| Rule | Reasoning |
-|------|-----------|
-| `Bash(git diff*)` | Essential for /review and /commit — read-only git operation |
-| `Bash(git add*)` | Required for /ship — staging files is safe and intentional |
-| `Bash(git push*)` | Needed for /ship Phase 5 — note: the hook blocks `--force` variant |
-| `Bash(python -m pytest*)` | Core to /test-gen — running tests is always safe |
-| `Bash(pip install*)` | Needed when adding dependencies — acceptable risk in dev |
-| `Write(src/*)` | Core feature work — all source edits happen here |
-| `Write(tests/*)` | Test generation writes here — essential for /test-gen |
-| `Write(.claude/*)` | Hooks and commands can update themselves — governance needs to evolve |
+- `Bash(npm *)` — All npm commands are fine. Running tests, installing packages, running the dev server — these are all safe.
+- `Bash(git add/commit/checkout/branch/status/diff/log/stash)` — Read-only and staging git operations. Safe to allow broadly.
+- `Bash(git push origin feature/* and fix/*)` — Push is allowed, but only to feature and fix branches. Not to main or master.
+- `Bash(gh pr *)` — GitHub CLI for PR operations. Safe.
+- `Bash(cat/ls/find/echo/mkdir)` — Standard read and utility commands. No reason to block these.
+- `Read(*)` — Reading any file is fine. You can't break anything by reading.
+- `Write(src/*, tests/*, docs/*, .claude/*)` — Write access scoped to our working directories only.
+- `Write(CLAUDE.md, README.md, REPORT.md)` — Root-level files we manage explicitly.
 
 **Deny rules:**
 
-| Rule | Reasoning |
-|------|-----------|
-| `Bash(rm -rf*)` | Belt-and-suspenders with validate-bash.py — two layers for catastrophic ops |
-| `Bash(sudo *)` | AI should never need elevated privileges for development tasks |
-| `Bash(curl * \| bash)` | Remote code execution — absolutely prohibited |
-| `Bash(git push --force)` | Only `--force-with-lease` is allowed — hook also enforces this |
-| `Write(.env*)` | Secrets files — AI must never write here under any circumstances |
-| `Write(migrations/*)` | Database schema changes need human review and intentional execution |
-| `WebFetch(*)` | This project doesn't need external web access — reduces attack surface |
-| `WebSearch(*)` | Same reasoning — restrict to only what the workflow needs |
+- `Bash(rm -rf *)` — Never. The hook also catches this, but belt-and-suspenders.
+- `Bash(sudo *)` — No elevated privileges, ever.
+- `Bash(git push origin main/master)` — No direct pushes to protected branches.
+- `Bash(git push --force, git push *-f *)` — No force pushes without explicit human action.
+- `Bash(curl/wget | sh)` — Never pipe remote content directly to shell.
+- `Bash(chmod 777 *)` — No world-writable permissions.
+- `Bash(dd *)` — Disk operations.
+- `Write(/etc/*, /usr/*, /home/*/.ssh/*)` — No writes to system or security directories.
 
-**`permissionMode: "default"`** — developers are prompted to approve novel tool calls not covered by the allow/deny lists. This is the right mode for a development team: it doesn't block productivity for common operations (explicitly allowed) but requires a human decision for anything unusual. `"acceptEdits"` mode would be too permissive; `"plan"` mode would be too slow for routine use.
+The philosophy: allow what's needed for normal development work, deny what could cause irreversible damage or security problems. Hooks add nuance on top of this for cases that need context to evaluate.

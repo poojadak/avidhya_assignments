@@ -1,58 +1,48 @@
 {
   "permissions": {
     "allow": [
+      "Bash(npm *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push origin feature/*)",
+      "Bash(git push origin fix/*)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
       "Bash(git status)",
-      "Bash(git diff*)",
-      "Bash(git log*)",
-      "Bash(git add*)",
-      "Bash(git commit*)",
-      "Bash(git push*)",
-      "Bash(git checkout*)",
-      "Bash(git branch*)",
-      "Bash(python -m pytest*)",
-      "Bash(python run.py*)",
-      "Bash(pip install*)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git stash *)",
+      "Bash(gh pr *)",
       "Bash(cat *)",
       "Bash(ls *)",
-      "Bash(find * -name *.py)",
-      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(echo *)",
       "Bash(mkdir -p *)",
-      "Bash(cp * *)",
+      "Bash(cp *)",
       "Bash(mv src/* src/*)",
+      "Read(*)",
       "Write(src/*)",
       "Write(tests/*)",
       "Write(docs/*)",
       "Write(.claude/*)",
       "Write(CLAUDE.md)",
       "Write(README.md)",
-      "Edit(src/*)",
-      "Edit(tests/*)",
-      "Edit(docs/*)",
-      "Edit(.claude/*)",
-      "Edit(CLAUDE.md)",
-      "MultiEdit(src/*)",
-      "MultiEdit(tests/*)"
+      "Write(REPORT.md)"
     ],
     "deny": [
-      "Bash(rm -rf*)",
-      "Bash(rm -fr*)",
+      "Bash(rm -rf *)",
       "Bash(sudo *)",
-      "Bash(curl * | bash)",
-      "Bash(wget * | sh)",
+      "Bash(git push origin main)",
+      "Bash(git push origin master)",
       "Bash(git push --force)",
-      "Bash(git push -f)",
-      "Bash(git reset --hard*)",
-      "Bash(DROP TABLE*)",
-      "Bash(DROP DATABASE*)",
-      "Write(.env*)",
-      "Write(*.env)",
-      "Write(migrations/*)",
-      "Write(.git/*)",
-      "Edit(.env*)",
-      "Edit(migrations/*)",
-      "Edit(.git/*)",
-      "WebFetch(*)",
-      "WebSearch(*)"
+      "Bash(git push *-f *)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | sh)",
+      "Bash(chmod 777 *)",
+      "Bash(dd *)",
+      "Write(/etc/*)",
+      "Write(/usr/*)",
+      "Write(/home/*/.ssh/*)"
     ]
   },
   "hooks": {
@@ -67,7 +57,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Write|Edit|MultiEdit|str_replace_editor",
         "hooks": [
           {
             "type": "command",
@@ -82,11 +72,11 @@
     ],
     "PostToolUse": [
       {
-        "matcher": ".*",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/audit-log.py"
+            "command": "bash .claude/hooks/audit-log.sh"
           }
         ]
       }
@@ -96,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/log-prompts.py"
+            "command": "python3 .claude/hooks/prompt-log.py"
           }
         ]
       }
@@ -111,7 +101,5 @@
         ]
       }
     ]
-  },
-  "model": "claude-sonnet-4-20250514",
-  "permissionMode": "default"
+  }
 }
