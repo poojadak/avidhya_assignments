@@ -1,0 +1,34 @@
+[
+  {
+    "severity": "CRITICAL",
+    "owasp": "A03 - Injection",
+    "file": "app/vitals.py",
+    "line": 38,
+    "description": "record_vitals() builds the INSERT query with an f-string. patient_id and vital_type are injected directly into the SQL string without sanitisation. An attacker who controls patient_id can execute arbitrary SQL.",
+    "fix": "Use parameterised queries: cursor.execute('INSERT INTO vitals (patient_id, vital_type, value) VALUES (%s, %s, %s)', (patient_id, vital_type, value))"
+  },
+  {
+    "severity": "CRITICAL",
+    "owasp": "A02 - Cryptographic Failures",
+    "file": "app/vitals.py",
+    "line": 14,
+    "description": "DB_PASSWORD is hardcoded as a plaintext string. Any developer with read access to the repository has the production database password.",
+    "fix": "Replace with os.getenv('DB_PASSWORD'). Rotate the exposed credential immediately."
+  },
+  {
+    "severity": "HIGH",
+    "owasp": "A09 - Security Logging Failures",
+    "file": "app/vitals.py",
+    "line": 72,
+    "description": "get_patient_vitals() returns full_name, dob, and nhs_number in the query result. This PII is over-exposed to any caller of this function.",
+    "fix": "Select only the fields needed: SELECT v.vital_type, v.value, v.ts FROM vitals v WHERE v.patient_id = %s"
+  },
+  {
+    "severity": "MEDIUM",
+    "owasp": "A01 - Broken Access Control",
+    "file": "app/vitals.py",
+    "line": 91,
+    "description": "_fire_alert() has no rate limiting — fires on every reading that breaches threshold, including during a retry loop.",
+    "fix": "Add a cooldown check: only fire an alert if no alert was fired for this patient+vital_type in the last 60 seconds."
+  }
+]

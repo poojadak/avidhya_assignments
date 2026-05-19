@@ -1,0 +1,27 @@
+{
+  "module": "app/vitals.py",
+  "test_file": "tests/test_vitals.py",
+  "coverage_target": 80,
+  "estimated_coverage": 35,
+  "risk_score": "high",
+  "untested_functions": [
+    {"function": "get_patient_vitals", "reason": "no tests found in test_vitals.py"},
+    {"function": "get_vital_trend", "reason": "no tests found"},
+    {"function": "calculate_alert_threshold", "reason": "2 tests exist but no edge cases covered"}
+  ],
+  "missing_edge_cases": [
+    {"function": "record_vitals", "missing_case": "value=None — currently crashes with uncaught TypeError", "risk": "high"},
+    {"function": "record_vitals", "missing_case": "negative value accepted without error", "risk": "high"},
+    {"function": "record_vitals", "missing_case": "unknown vital_type — no validation, passes to DB", "risk": "medium"},
+    {"function": "calculate_alert_threshold", "missing_case": "age=0 (newborn) — boundary not tested", "risk": "medium"},
+    {"function": "calculate_alert_threshold", "missing_case": "unknown vital_type raises unhandled KeyError", "risk": "high"},
+    {"function": "record_vitals", "missing_case": "DB timeout triggers retry loop — retry logic untested", "risk": "high"}
+  ],
+  "priority_gaps": [
+    "1. record_vitals(value=None) — crashes with unhandled TypeError in _execute_write",
+    "2. calculate_alert_threshold(unknown_vital_type) — raises KeyError, completely unhandled",
+    "3. record_vitals(negative_value) — accepted silently, no input validation",
+    "4. get_patient_vitals — zero test coverage on a public API function"
+  ],
+  "summary": "Coverage is critically low at ~35%; 3 public functions have zero tests and 3 high-risk edge cases in record_vitals are completely untested."
+}

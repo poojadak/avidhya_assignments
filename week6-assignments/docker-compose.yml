@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+
+  # ── API Service ──────────────────────────────────────────────────────────────
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Database (PostgreSQL) ────────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Cache (Redis) ────────────────────────────────────────────────────────────
+  cache:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# Named volumes so data survives container restarts
+volumes:
+  postgres_data:
+  redis_data:

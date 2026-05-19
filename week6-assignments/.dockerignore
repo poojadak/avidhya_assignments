@@ -1,0 +1,26 @@
+# Don't copy these into the Docker image
+
+# Python bytecode
+__pycache__
+*.pyc
+*.pyo
+
+# Environment files — secrets should never go inside the image
+.env
+.env.*
+
+# Git history — not needed at runtime
+.git
+
+# Test files and coverage reports
+tests/__pycache__
+.pytest_cache
+htmlcov
+coverage.xml
+
+# Skill example outputs
+skills/*/examples/
+
+# Editor files
+.vscode
+*.swp

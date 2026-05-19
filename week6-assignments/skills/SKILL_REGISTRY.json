@@ -1,0 +1,113 @@
+{
+  "_comment": "Machine-readable registry of all Skills in this library. Used by plugins/run_skill.py and the demo HTML. Update when adding or versioning a Skill.",
+  "library": "healthtrack-api",
+  "maintainer": "platform-team",
+  "last_updated": "2026-04-22",
+  "skills": [
+    {
+      "id": "pr-review",
+      "name": "PR Code Review",
+      "category": "code-quality",
+      "current_version": "1.2.0",
+      "status": "stable",
+      "owner": "platform-team",
+      "skill_file": "skills/pr-review/SKILL.md",
+      "versions": [
+        {
+          "version": "1.2.0",
+          "date": "2026-04-20",
+          "type": "MINOR",
+          "summary": "Added PR_DESC optional input and SUMMARY output section",
+          "breaking": false,
+          "tested_by": "platform-team",
+          "test_runs": 12
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-03-15",
+          "type": "MINOR",
+          "summary": "Added NICE_TO_HAVE output section",
+          "breaking": false,
+          "tested_by": "platform-team",
+          "test_runs": 6
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-02-01",
+          "type": "MAJOR",
+          "summary": "Initial release",
+          "breaking": false,
+          "tested_by": "platform-team",
+          "test_runs": 5
+        }
+      ]
+    },
+    {
+      "id": "security-audit",
+      "name": "Security Audit",
+      "category": "security",
+      "current_version": "1.1.0",
+      "status": "stable",
+      "owner": "platform-team",
+      "skill_file": "skills/security-audit/SKILL.md",
+      "versions": [
+        {
+          "version": "1.1.0",
+          "date": "2026-04-15",
+          "type": "MINOR",
+          "summary": "Added DIFF optional input; added A07 Auth Failures to focus list",
+          "breaking": false,
+          "tested_by": "platform-team",
+          "test_runs": 8
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-03-01",
+          "type": "MAJOR",
+          "summary": "Initial release — A03, A02, A09, A01",
+          "breaking": false,
+          "tested_by": "platform-team",
+          "test_runs": 5
+        }
+      ]
+    },
+    {
+      "id": "test-coverage",
+      "name": "Test Coverage Report",
+      "category": "testing",
+      "current_version": "2.0.1",
+      "status": "stable",
+      "owner": "qa-team",
+      "skill_file": "skills/test-coverage/SKILL.md",
+      "versions": [
+        {
+          "version": "2.0.1",
+          "date": "2026-04-22",
+          "type": "PATCH",
+          "summary": "Fixed crash on empty test file input",
+          "breaking": false,
+          "tested_by": "qa-team",
+          "test_runs": 4
+        },
+        {
+          "version": "2.0.0",
+          "date": "2026-03-20",
+          "type": "MAJOR",
+          "summary": "Output changed from markdown to JSON — all callers must update",
+          "breaking": true,
+          "tested_by": "qa-team",
+          "test_runs": 6
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-01-10",
+          "type": "MAJOR",
+          "summary": "Initial release — markdown output format",
+          "breaking": false,
+          "tested_by": "qa-team",
+          "test_runs": 5
+        }
+      ]
+    }
+  ]
+}

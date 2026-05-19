@@ -1,0 +1,169 @@
+name: HealthTrack CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+
+  # Job 1: Lint — checks code style before anything else runs
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+
+      - name: Install linting tools
+        run: pip install flake8 black
+
+      - name: Run flake8 (style + error check)
+        run: flake8 app/ tests/
+
+      - name: Run black (formatting check)
+        run: black --check app/ tests/
+
+  # Job 2: Test — runs the test suite and checks coverage (needs lint to pass first)
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-test-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-test-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest pytest-cov
+
+      - name: Run tests with coverage
+        run: pytest tests/ --cov=app --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+      - name: Post test summary
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "Tests passed with coverage check enforced (minimum 80%)." >> $GITHUB_STEP_SUMMARY
+
+  # Job 3: Security — runs bandit and safety scans in parallel with test
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-security-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-security-
+
+      - name: Install security tools
+        run: pip install bandit safety
+
+      - name: Run bandit (static security analysis)
+        run: bandit -r app/ -ll
+
+      - name: Run safety (dependency vulnerability check)
+        run: safety check -r requirements.txt
+
+      - name: Post security summary
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "Bandit and Safety scans completed." >> $GITHUB_STEP_SUMMARY
+
+  # Job 4: AI Skills — runs the Claude-powered security audit after test and security pass
+  ai-skills:
+    name: AI Security Audit
+    runs-on: ubuntu-latest
+    needs: [test, security]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ai-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-ai-
+
+      - name: Install Anthropic SDK
+        run: pip install anthropic
+
+      - name: Run AI security audit skill
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python plugins/run_skill.py security-audit \
+            --scope app/vitals.py \
+            --context CLAUDE.md \
+            --no-save > /tmp/security_audit.json
+
+      - name: Block merge if CRITICAL issues found
+        run: |
+          if grep -q "CRITICAL" /tmp/security_audit.json; then
+            echo "BLOCKED: CRITICAL security issues found in AI audit."
+            cat /tmp/security_audit.json
+            exit 1
+          else
+            echo "AI security audit passed — no CRITICAL issues found."
+          fi
+
+      - name: Post AI audit summary
+        run: |
+          echo "## AI Security Audit" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/security_audit.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
